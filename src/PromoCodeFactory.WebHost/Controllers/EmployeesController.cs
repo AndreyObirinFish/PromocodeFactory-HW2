@@ -70,5 +70,38 @@ namespace PromoCodeFactory.WebHost.Controllers
 
             return employeeModel;
         }
+
+        /// <summary>
+        /// Удалить данные сотрудника по Id
+        /// </summary>
+        [HttpDelete("{id:guid}")]
+        public async Task<ActionResult> DeleteEmployeeByIdAsync(Guid id)
+        {
+            var employee = await _employeeRepository.GetByIdAsync(id);
+
+            if (employee == null)
+                return NotFound();
+
+            var employeeModel = new EmployeeResponse()
+            {
+                Id = employee.Id,
+                Email = employee.Email,
+                Roles = employee.Roles.Select(x => new RoleItemResponse()
+                {
+                    Id = x.Id,
+                    Name = x.Name,
+                    Description = x.Description
+                }).ToList(),
+                FullName = employee.FullName,
+                AppliedPromocodesCount = employee.AppliedPromocodesCount
+            };
+            var success = await _employeeRepository.DeleteByIdAsync(id);
+            if (success)
+            {
+                return Ok(employeeModel);
+            }
+
+            return NotFound();
+        }
     }
 }
