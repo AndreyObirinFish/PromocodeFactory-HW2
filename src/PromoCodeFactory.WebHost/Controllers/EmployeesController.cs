@@ -150,5 +150,29 @@ namespace PromoCodeFactory.WebHost.Controllers
 
             return Ok(employeeModel);
         }
+
+
+        /// <summary>
+        /// Добавить нового сотрудника
+        /// </summary>
+        [HttpPost]
+        [Route("Create")]
+        public async Task<ActionResult<Guid?>> CreateEmployeeAsync(EmployeeRequest request)
+        {
+            var roles = new List<Role>();
+            foreach (var roleId in request.Roles)
+            {
+                var role = await _roleRepository.GetByIdAsync(roleId.Id);
+                roles.Add(role);
+            }
+
+            var employeeEntity = new Employee(request.FirstName, request.LastName, request.Email, request.AppliedPromocodesCount, roles);
+
+            var result = await _employeeRepository.AddAsync(employeeEntity);
+            if (result.HasValue)
+                return result;
+
+            return Ok();
+        }
     }
 }

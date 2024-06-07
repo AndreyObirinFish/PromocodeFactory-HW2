@@ -52,5 +52,18 @@ namespace PromoCodeFactory.DataAccess.Repositories
             Data = Data.Select(x => x.Id == entity.Id ? entity : x);
             return Task.FromResult(entity);
         }
+
+        public Task<Guid?> AddAsync(T entity)
+        {
+            if (!Data.Any(x => x.Id == entity.Id))
+            {
+                var count = Data.Count();
+                var DataList = Data.ToList();
+                DataList.Add(entity);
+                Data = DataList;
+                return Task.FromResult<Guid?>(count != Data.Count() ? entity.Id : null);
+            }
+            return Task.FromResult<Guid?>(null);
+        }
     }
 }
