@@ -111,52 +111,30 @@ namespace PromoCodeFactory.WebHost.Controllers
         /// <summary>
         /// Обновить данные сотрудника по Id
         /// </summary>
-        [HttpPut]
-        public async Task<ActionResult> UpdateEmployeeAsync(EmployeeUpdate employeeUpdate)
+        [HttpPost("{id:guid}")]
+        public async Task<ActionResult> UpdateEmployeeAsync(Guid id ,[FromBody] EmployeeRequest request)
         {
-            var employee = await _employeeRepository.GetByIdAsync(employeeUpdate.Id);
-
-            if (employee == null)
-                return NotFound();
-
-            var employeeRepository = new Employee()
+            var roles = new List<Role>();
+            foreach (var roleId in request.Roles)
             {
-                Id = employeeUpdate.Id,
-                Email = employeeUpdate.Email,
-                Roles = new List<Role> { },
-                FirstName = employeeUpdate.FullName.Split(" ")[0],
-                LastName = employeeUpdate.FullName.Split(" ")[1],
-                AppliedPromocodesCount = employeeUpdate.AppliedPromocodesCount
-            };
-            foreach (var roleId in employeeUpdate.RoleIds) 
-            {
-                var role = await _roleRepository.GetByIdAsync(roleId);
-                employeeRepository.Roles.Add(role);
+                var role = await _roleRepository.GetByIdAsync(roleId.Id);
+                roles.Add(role);
             }
-            employee = await _employeeRepository.UpdateAsync(employeeRepository);
-            var  employeeModel = new EmployeeResponse()
-            {
-                Id = employee.Id,
-                Email = employee.Email,
-                Roles = employee.Roles.Select(x => new RoleItemResponse()
-                {
-                    Id = x.Id,
-                    Name = x.Name,
-                    Description = x.Description
-                }).ToList(),
-                FullName = employee.FullName,
-                AppliedPromocodesCount = employee.AppliedPromocodesCount
-            };
 
-            return Ok(employeeModel);
+            var employeeEntity = new Employee(id, request.FirstName, request.LastName, request.Email, request.AppliedPromocodesCount, roles);
+
+            var result = await _employeeRepository.UpdateAsync(id,employeeEntity);
+            if (result)
+                  return Ok();
+            else
+                return  BadRequest(); 
         }
-
 
         /// <summary>
         /// Добавить нового сотрудника
         /// </summary>
         [HttpPost]
-        [Route("Create")]
+        //[Route("Create")]
         public async Task<ActionResult<Guid?>> CreateEmployeeAsync(EmployeeRequest request)
         {
             var roles = new List<Role>();
