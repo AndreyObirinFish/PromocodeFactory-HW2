@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Configuration;
 using PromoCodeFactory.Core.Abstractions.Repositories;
 using PromoCodeFactory.Core.Domain.Administration;
 using PromoCodeFactory.WebHost.Models;
@@ -19,11 +20,13 @@ namespace PromoCodeFactory.WebHost.Controllers
         private readonly IRepository<Employee> _employeeRepository;
 
         private readonly IRepository<Role> _roleRepository;
+        private readonly IConfiguration _configuration;
 
-        public EmployeesController(IRepository<Employee> employeeRepository,IRepository<Role> roleRepository)
+        public EmployeesController(IRepository<Employee> employeeRepository,IRepository<Role> roleRepository,IConfiguration configuration)
         {
             _employeeRepository = employeeRepository;
             _roleRepository = roleRepository;
+            _configuration= configuration;
         }
 
         /// <summary>
@@ -33,6 +36,8 @@ namespace PromoCodeFactory.WebHost.Controllers
         [HttpGet]
         public async Task<List<EmployeeShortResponse>> GetEmployeesAsync()
         {
+            //var c = _configuration.GetSection("Logging:LogLevel:Default").Value;
+            //var u = _configuration["SomeParam"];
             var employees = await _employeeRepository.GetAllAsync();
 
             var employeesModelList = employees.Select(x =>
@@ -56,7 +61,7 @@ namespace PromoCodeFactory.WebHost.Controllers
             var employee = await _employeeRepository.GetByIdAsync(id);
 
             if (employee == null)
-                return NotFound();
+                return NoContent(); 
 
             var employeeModel = new EmployeeResponse()
             {
@@ -84,7 +89,7 @@ namespace PromoCodeFactory.WebHost.Controllers
             var employee = await _employeeRepository.GetByIdAsync(id);
 
             if (employee == null)
-                return NotFound();
+                return BadRequest();
 
             var employeeModel = new EmployeeResponse()
             {
@@ -105,7 +110,7 @@ namespace PromoCodeFactory.WebHost.Controllers
                 return Ok(employeeModel);
             }
 
-            return NotFound();
+            return BadRequest();
         }
 
         /// <summary>
@@ -114,12 +119,18 @@ namespace PromoCodeFactory.WebHost.Controllers
         [HttpPost("{id:guid}")]
         public async Task<ActionResult> UpdateEmployeeAsync(Guid id ,[FromBody] EmployeeRequest request)
         {
-            var roles = new List<Role>();
-            foreach (var roleId in request.Roles)
-            {
-                var role = await _roleRepository.GetByIdAsync(roleId.Id);
-                roles.Add(role);
-            }
+            var employee = await _employeeRepository.GetByIdAsync(id);
+
+            if (employee == null)
+                return BadRequest();
+
+            List<Role> roles = await CreateRoles(request);
+            //var roles = new List<Role>();
+            //foreach (var roleId in request.Roles)
+            //{
+            //    var role = await _roleRepository.GetByIdAsync(roleId.Id);
+            //    roles.Add(role);
+            //}
 
             var employeeEntity = new Employee(id, request.FirstName, request.LastName, request.Email, request.AppliedPromocodesCount, roles);
 
@@ -127,7 +138,7 @@ namespace PromoCodeFactory.WebHost.Controllers
             if (result)
                   return Ok();
             else
-                return  BadRequest(); 
+            return  BadRequest(); 
         }
 
         /// <summary>
@@ -137,20 +148,45 @@ namespace PromoCodeFactory.WebHost.Controllers
         //[Route("Create")]
         public async Task<ActionResult<Guid?>> CreateEmployeeAsync(EmployeeRequest request)
         {
-            var roles = new List<Role>();
-            foreach (var roleId in request.Roles)
-            {
-                var role = await _roleRepository.GetByIdAsync(roleId.Id);
-                roles.Add(role);
-            }
-
+            //var roles = new List<Role>();
+            //foreach (var roleId in request.Roles)
+            //{
+            //    var role = await _roleRepository.GetByIdAsync(roleId.Id);
+            //    roles.Add(role);
+            //}
+            List<Role> roles = await CreateRoles(request);
             var employeeEntity = new Employee(request.FirstName, request.LastName, request.Email, request.AppliedPromocodesCount, roles);
 
             var result = await _employeeRepository.AddAsync(employeeEntity);
             if (result.HasValue)
                 return result;
+            else
+            return BadRequest();
+        }
 
-            return Ok();
+        private async Task<List<Role>> CreateRoles(EmployeeRequest request)
+        {
+            var roles = new List<Role>();
+            if (request.Roles != null)
+            {
+                foreach (var item in request.Roles)
+                {
+                    var role = await _roleRepository.GetByIdAsync(item.Id);
+                    if (role == null)
+                    {
+                        role = new Role
+                        {
+                            Id = item.Id,
+                            Name = item.Name,
+                            Description = item.Description
+                        };
+                        await _roleRepository.AddAsync(role);
+                    }
+                    roles.Add(role);
+                }
+            }
+
+            return roles;
         }
     }
 }
